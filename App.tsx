@@ -19,6 +19,7 @@ import {
   Modal,
 } from 'react-native';
 import { Task, TaskOccurrence } from './Models/Task';
+import { TaskService } from './services/TaskService';
 
 function App() {
   const today = new Date();
@@ -35,8 +36,28 @@ function App() {
   const [newTaskDescription, setNewTaskDescription] = React.useState('');
   const [newTaskOccurrence, setNewTaskOccurrence] = React.useState<TaskOccurrence>('once');
   
-  const occurrences: TaskOccurrence[] = ['once', 'daily', 'weekly', 'monthly', 'yearly'];
+  const occurrences: TaskOccurrence[] = ['once', 'daily', 'weekdays', 'weekly', 'monthly', 'yearly'];
   
+  const taskService = React.useMemo(() => TaskService.getInstance(), []);
+  
+  React.useEffect(() => {
+    loadTasks();
+  }, []);
+
+  React.useEffect(() => {
+    loadTasksForWeek();
+  }, [currentWeekStart]);
+
+  const loadTasks = async () => {
+    const loadedTasks = await taskService.loadTasks();
+    setTasks(loadedTasks);
+  };
+
+  const loadTasksForWeek = async () => {
+    const weekTasks = await taskService.getTasksForWeek(currentWeekStart);
+    setTasks(weekTasks);
+  };
+
   const handlePreviousWeek = () => {
     const newStart = new Date(currentWeekStart);
     newStart.setDate(currentWeekStart.getDate() - 7);
@@ -75,14 +96,15 @@ function App() {
   const todoTasks = tasks.filter((task: Task) => !task.completed && task.date.toDateString() === selectedDate.toDateString());
   const doneTasks = tasks.filter((task: Task) => task.completed && task.date.toDateString() === selectedDate.toDateString());
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (newTaskTitle.trim()) {
       const newTask = new Task(newTaskTitle, newTaskDescription, selectedDate, newTaskOccurrence);
-      setTasks([...tasks, newTask]);
+      await taskService.createTask(newTask);
       setNewTaskTitle('');
       setNewTaskDescription('');
       setNewTaskOccurrence('once');
       setIsModalVisible(false);
+      await loadTasksForWeek();
     }
   };
 
@@ -93,16 +115,17 @@ function App() {
     return startOfCurrentWeek.toDateString() === currentWeekStart.toDateString();
   };
 
-  const toggleTaskCompletion = (taskId: string) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId 
-        ? { ...task, completed: !task.completed }
-        : task
-    ));
+  const toggleTaskCompletion = async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (task) {
+      await taskService.updateTask(taskId, { completed: !task.completed });
+      await loadTasksForWeek();
+    }
   };
 
-  const deleteTask = (taskId: string) => {
-    setTasks(tasks.filter((task: Task) => task.id !== taskId));
+  const deleteTask = async (taskId: string) => {
+    await taskService.deleteTask(taskId);
+    await loadTasksForWeek();
   };
 
   return (

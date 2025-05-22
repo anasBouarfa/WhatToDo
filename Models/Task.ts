@@ -1,4 +1,4 @@
-export type TaskOccurrence = 'once' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+export type TaskOccurrence = 'once' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly';
 
 export class Task {
   id: string;
